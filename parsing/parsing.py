@@ -51,25 +51,36 @@ class Header:
 		print("------------")
 		self.defendant.print()
 
+class Argument:
+	def __init__(self, argument, evidence = None):
+		self.argument
+		self.evidence
 
-# court_address = Address("Baumleingasse 5", "4001 Basel", "Postfach 964")
-# court = Entity("Zivilgericht Basel-Stadt", court_address)
-# plaintiff_address = Address("Scheideggstrasse 66", "8002 Zurich")
-# plaintiff_lawyer = Entity("Dr. Sandro Maurer", Address("Erwenbergstrasse 51", "4410 Liestal", "Postfach"), role = "Representative")
-# plaintiff = Entity("Muller & Janser AG", plaintiff_address, representative = plaintiff_lawyer)
-# defendant_address = Address("Klingentalstrasse 41", "4057 Basel", "Postfach 120")
-# defendant_lawyer = Entity("Dr. Mark Sacher", Address("Freie Strasse 45", "4001 Basel", "Postfach"), role = "Representative", firm = "Sacher Rechtsanwalte")
-# defendant = Entity("Peter Meister", defendant_address, representative = defendant_lawyer, profession = "Werbegrafiker")
-# header = Header(court, plaintiff, defendant)
-# header.print()
+	def print(self):
+		print("Statement:")
+		print(self.argument)
+		if self.evidence:
+			print("Evidence:")
+			for obj in self.evidence:
+				print(obj)
 
-# def get_lines(filename):
-# 	reader = PdfReader(filename)
-# 	text = []
+class Info:
+	def __init__(self, header, claims, arguments = None):
+		self.header = header
+		self.claims = claims
+		self.arguments = arguments
 
-# 	for page in reader.pages:
-# 		text.extend(page.extract_text().splitlines())
-# 	return [line.strip() for line in text if line.strip()]
+	def print(self):
+		print("Header:")
+		self.header.print()
+		print("Claims:")
+		for i, claim in enumerate(self.claims):
+			print("{}. {}".format(i + 1, claim))
+		print("Arguments:")
+		if self.arguments:
+			for arg in self.arguments:
+				arg.print()
+
 
 def is_bold(span):
 	return "Bold" in span["font"]
@@ -139,7 +150,7 @@ def get_plaintiff(spans):
 			continue
 		if collecting_first:
 			first_line += text
-		if collecting_second and is_bold(span):
+		if collecting_second and "gegen" in text:
 			break
 		if collecting_second:
 			second_line += text
@@ -183,9 +194,35 @@ def get_defendant(spans):
 	defendant = build_person(first_line, "Defendant", lawyer)
 	return (defendant)
 
-def get_header(filename):
-	spans = get_spans(filename)
+def get_header(spans):
 	return Header(get_court(spans), get_plaintiff(spans), get_defendant(spans))
 
-header = get_header(filename)
-header.print()
+def get_claims(spans):
+	claims = []
+	line = ""
+	collecting = False
+	for span in spans:
+		text = span["text"]
+		if "Rechtsbegehren" in text:
+			collecting = True
+			continue
+		if collecting and text.strip()[0].isdigit():
+			if line != "":
+				claims.append(line)
+			line = ""
+			continue
+		if collecting and "Begründung" in text:
+			claims.append(line)
+			break
+		if collecting:
+			line += text
+	return claims
+
+spans = get_spans(filename)
+header = get_header(spans)
+# header.print()
+
+claims = get_claims(spans)
+
+info = Info(header, claims)
+info.print()

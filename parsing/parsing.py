@@ -51,34 +51,50 @@ class Header:
 		self.defendant.print()
 
 class Argument:
-	def __init__(self, argument, evidence = None):
-		self.argument
-		self.evidence
+	def __init__(self, statement, evidence = None):
+		self.statement = statement
+		self.evidence = evidence
 
 	def print(self):
 		print("Statement:")
-		print(self.argument)
+		print(self.statement)
 		if self.evidence:
 			print("Evidence:")
 			for obj in self.evidence:
 				print(obj)
 
+class Justification:
+	def __init__(self, formalities, jurisdiction, facts):
+		self.formalities = formalities
+		self.jurisdiction = jurisdiction
+		self.facts = facts
+	
+	def print(self):
+		print("I. Formelles")
+		for arg in self.formalities:
+			arg.print()
+		print("II. Zuständigkeit")
+		for arg in self.jurisdiction:
+			arg.print()
+		print("III. Materielles")
+		for arg in self.facts:
+			arg.print()
+
 class Info:
-	def __init__(self, header, claims, arguments = None):
+	def __init__(self, header, claims, justification):
 		self.header = header
 		self.claims = claims
-		self.arguments = arguments
+		self.justification = justification
 
-	def print(self):
-		print("Header:")
-		self.header.print()
-		print("Claims:")
+	def print(self, print_header = False):
+		if print_header:
+			print("Header:")
+			self.header.print()
+		print("Rechtsbegehren:")
 		for i, claim in enumerate(self.claims):
 			print("{}. {}".format(i + 1, claim))
-		print("Arguments:")
-		if self.arguments:
-			for arg in self.arguments:
-				arg.print()
+		print("Begründung:")
+		self.justification.print()
 
 def is_bold(span):
 	return "Bold" in span["font"]
@@ -216,9 +232,59 @@ def get_claims(spans):
 			line += text
 	return claims
 
+def get_arguments(spans, upper_bound, lower_bound):
+	formalities = []
+	statement = ""
+	evidence = ""
+	evidence_array = []
+	collecting = False
+	in_statement = False
+	in_evidence = -1
+
+	for span in spans:
+		text = span["text"].strip()
+
+		if collecting and (lower_bound in text):
+			break
+		if upper_bound in text:
+			collecting = True
+			in_statement = True
+			continue
+		if in_statement:
+			if "BO:" in text:
+				in_statement = False
+				in_evidence = 2
+				continue
+			elif statement and in_evidence == 0:
+				formalities.append(Argument(statement.strip(), evidence_array))
+				evidence_array = []
+				statement = ""
+				in_evidence = -1
+			statement += " " + text
+		if in_evidence > 0:
+			evidence += " " + text
+			in_evidence -= 1
+			if in_evidence == 0:
+				evidence_array.append(evidence.strip())
+				evidence = ""
+				in_evidence = False
+				in_statement = True
+				continue
+	if evidence:
+		evidence_array.append(evidence.strip())
+	if statement:
+		formalities.append(Argument(statement.strip(), evidence_array))
+	return (formalities)
+	
+def get_justification(spans):
+	formalities = get_arguments(spans, "Formelles", "II")
+	jurisdiction = get_arguments(spans, "Zuständigkeit", "III")
+	facts = get_arguments(spans, "Materielles", "Zinsanspruch")
+	return Justification(formalities, jurisdiction, facts)
+
 def get_info(filename):
 	spans = get_spans(filename)
-	return Info(get_header(spans), get_claims(spans))
+	return Info(get_header(spans), get_claims(spans), get_justification(spans))
 
 info = get_info(filename)
 info.print()

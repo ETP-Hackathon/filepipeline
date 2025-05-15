@@ -8,6 +8,8 @@ from .convert_docx_to_pdf import convert_docx_to_pdf
 from .ai_lawyer_service import get_placeholder_values
 import json
 from django.views.decorators.csrf import csrf_exempt
+import requests
+from docx import Document
 
 def hello(request):
 	return HttpResponse("Hello, world. You're at the polls index.")
@@ -45,35 +47,36 @@ def send_file(request):
         try:
             
             success = get_info(latest_file)
-            if success:
-                success.print()
+                #success.print()
+                #return render(request, 'upload_success.html')
+                #make post request to placeholder_values
+            with open("/Users/maximemartin/filepipeline/webserv/emify/dokument.docx", "rb") as f:
+                doc = Document(f)
+                doc = "\n".join([p.text for p in doc.paragraphs])
+                
+                
+            response = requests.post(
+                'http://localhost:8000/placeholder_values/',
+                json={"file_text": success.to_string(), "template_text": doc}
+            )
+            if response.status_code == 200:
+                with open("output.json", "w", encoding="utf-8") as outfile:
+                    json.dump(response.json(), outfile, ensure_ascii=False, indent=2)
                 return render(request, 'upload_success.html')
             else:
                 return HttpResponse("Error parsing file")
+            
+            return redirect('placeholder_values')
         except ImportError:
             return HttpResponse("Parser module not implemented yet")
 
 @csrf_exempt
 def placeholder_values(request):
-    """
-    API endpoint for generating placeholder values from a legal document.
-    
-    Accepts POST requests with JSON body containing:
-    - file_text: The legal document text to analyze
-    - template_text: Optional template with placeholders to fill
-    - placeholder_regex: Optional regex pattern for identifying placeholders
-    - mock: Optional boolean to use mock values instead of AI
-    
-    Returns JSON with:
-    - placeholder_values: Array of generated values
-    - original_text: The input document text
-    - prompt: Details of the prompt sent to AI (when not using mock)
-    """
-    # Validate request method
+    # Only accept POST requests
     if request.method != 'POST':
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
         
-    # Validate content type
+    # check if the request is JSON
     if request.content_type != 'application/json':
         return JsonResponse({'error': 'Request must be JSON'}, status=400)
     
@@ -83,17 +86,24 @@ def placeholder_values(request):
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
     
-    # Validate required fields
+    # check if file_text is in the request
     if 'file_text' not in data:
         return JsonResponse({'error': 'file_text is required'}, status=400)
 
-    file_text = data.get('file_text', '')
+    # get the file text from the request json
+    file_text = data['file_text']
+    
+    # Get template text if provided
+    template_text = data.get('template_text', None)
+    
+    # Get placeholder regex if provided
+    placeholder_regex = data.get('placeholder_regex', None)
+    
+    # check if file_text is null or empty
     if not file_text:
         return JsonResponse({'error': 'file_text cannot be empty'}, status=400)
     
-    # Extract optional parameters
-    template_text = data.get('template_text', None)
-    placeholder_regex = data.get('placeholder_regex', None)
+    # Check if mock parameter is set to true
     use_mock = data.get('mock', False)
     
     # Prepare input data
@@ -104,17 +114,15 @@ def placeholder_values(request):
     if placeholder_regex:
         file_data['placeholder_regex'] = placeholder_regex
     
-    # Get placeholder values using appropriate method
     if use_mock:
         # Use mock values if explicitly requested
         from .ai_lawyer_service import get_placeholder_mock_values
-        filled_placeholder_array, ai_prompt = get_placeholder_mock_values(file_data, template_data)
+        filled_placeholder_array = get_placeholder_mock_values(file_data, template_data)
+        ai_prompt = None
     else:
         # Use OpenAI API for real values
-        from .ai_lawyer_service import get_placeholder_values
         filled_placeholder_array, ai_prompt = get_placeholder_values(file_data, parsed_json_template_file=template_data)
 
-    # Prepare response
     response = {
         'placeholder_values': filled_placeholder_array,
         'original_text': file_text

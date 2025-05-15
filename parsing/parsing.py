@@ -218,11 +218,9 @@ def get_claims(spans):
 			line += text
 	return claims
 
-spans = get_spans(filename)
-header = get_header(spans)
-# header.print()
+def get_info(filename):
+	spans = get_spans(filename)
+	return Info(get_header(spans), get_claims(spans))
 
-claims = get_claims(spans)
-
-info = Info(header, claims)
+info = get_info(filename)
 info.print()

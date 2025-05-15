@@ -3,7 +3,7 @@ from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from .forms import UploadFileForm
 import os
-from .parsing import get_header
+from .parsing import get_info
 from .convert_docx_to_pdf import convert_docx_to_pdf
 
 def hello(request):
@@ -21,7 +21,7 @@ def upload_file(request):
 
 def send_file(request):
     if request.method == 'GET':
-        upload_dir = '/Users/maximemartin/filepipeline/webserv/media/uploads/'
+        upload_dir = 'media/uploads/'
         
         files = os.listdir(upload_dir)
         if not files:
@@ -41,7 +41,7 @@ def send_file(request):
         
         try:
             
-            success = get_header(latest_file)
+            success = get_info(latest_file)
             if success:
                 success.print()
                 return render(request, 'upload_success.html')

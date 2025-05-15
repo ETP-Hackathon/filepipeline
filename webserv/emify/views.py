@@ -1,10 +1,13 @@
 from django.urls import path
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect
 from .forms import UploadFileForm
 import os
 from .parsing import get_info
 from .convert_docx_to_pdf import convert_docx_to_pdf
+from .ai_lawyer_service import get_placeholder_values
+import json
+from django.views.decorators.csrf import csrf_exempt
 
 def hello(request):
 	return HttpResponse("Hello, world. You're at the polls index.")
@@ -49,6 +52,70 @@ def send_file(request):
                 return HttpResponse("Error parsing file")
         except ImportError:
             return HttpResponse("Parser module not implemented yet")
+
+@csrf_exempt
+def placeholder_values(request):
+    # Only accept POST requests
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+        
+    # check if the request is JSON
+    if request.content_type != 'application/json':
+        return JsonResponse({'error': 'Request must be JSON'}, status=400)
+    
+    # Parse JSON data
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    
+    # check if file_text is in the request
+    if 'file_text' not in data:
+        return JsonResponse({'error': 'file_text is required'}, status=400)
+
+    # get the file text from the request json
+    file_text = data['file_text']
+    
+    # Get template text if provided
+    template_text = data.get('template_text', None)
+    
+    # Get placeholder regex if provided
+    placeholder_regex = data.get('placeholder_regex', None)
+    
+    # check if file_text is null or empty
+    if not file_text:
+        return JsonResponse({'error': 'file_text cannot be empty'}, status=400)
+    
+    # Check if mock parameter is set to true
+    use_mock = data.get('mock', False)
+    
+    # Prepare input data
+    file_data = {'text': file_text}
+    template_data = {'text': template_text} if template_text else None
+    
+    # Add regex to file_data if provided
+    if placeholder_regex:
+        file_data['placeholder_regex'] = placeholder_regex
+    
+    if use_mock:
+        # Use mock values if explicitly requested
+        from .ai_lawyer_service import get_placeholder_mock_values
+        filled_placeholder_array = get_placeholder_mock_values(file_data, template_data)
+        ai_prompt = None
+    else:
+        # Use OpenAI API for real values
+        filled_placeholder_array, ai_prompt = get_placeholder_values(file_data, parsed_json_template_file=template_data)
+
+    response = {
+        'placeholder_values': filled_placeholder_array,
+        'original_text': file_text
+    }
+    
+    # Include AI prompt in response if available
+    if ai_prompt:
+        response['prompt'] = ai_prompt
+
+    return JsonResponse(response)
 
 def nada(request):
      return render(request, 'home.html')

@@ -55,11 +55,25 @@ def send_file(request):
 
 @csrf_exempt
 def placeholder_values(request):
-    # Only accept POST requests
+    """
+    API endpoint for generating placeholder values from a legal document.
+    
+    Accepts POST requests with JSON body containing:
+    - file_text: The legal document text to analyze
+    - template_text: Optional template with placeholders to fill
+    - placeholder_regex: Optional regex pattern for identifying placeholders
+    - mock: Optional boolean to use mock values instead of AI
+    
+    Returns JSON with:
+    - placeholder_values: Array of generated values
+    - original_text: The input document text
+    - prompt: Details of the prompt sent to AI (when not using mock)
+    """
+    # Validate request method
     if request.method != 'POST':
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
         
-    # check if the request is JSON
+    # Validate content type
     if request.content_type != 'application/json':
         return JsonResponse({'error': 'Request must be JSON'}, status=400)
     
@@ -69,24 +83,17 @@ def placeholder_values(request):
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
     
-    # check if file_text is in the request
+    # Validate required fields
     if 'file_text' not in data:
         return JsonResponse({'error': 'file_text is required'}, status=400)
 
-    # get the file text from the request json
-    file_text = data['file_text']
-    
-    # Get template text if provided
-    template_text = data.get('template_text', None)
-    
-    # Get placeholder regex if provided
-    placeholder_regex = data.get('placeholder_regex', None)
-    
-    # check if file_text is null or empty
+    file_text = data.get('file_text', '')
     if not file_text:
         return JsonResponse({'error': 'file_text cannot be empty'}, status=400)
     
-    # Check if mock parameter is set to true
+    # Extract optional parameters
+    template_text = data.get('template_text', None)
+    placeholder_regex = data.get('placeholder_regex', None)
     use_mock = data.get('mock', False)
     
     # Prepare input data
@@ -97,15 +104,17 @@ def placeholder_values(request):
     if placeholder_regex:
         file_data['placeholder_regex'] = placeholder_regex
     
+    # Get placeholder values using appropriate method
     if use_mock:
         # Use mock values if explicitly requested
         from .ai_lawyer_service import get_placeholder_mock_values
-        filled_placeholder_array = get_placeholder_mock_values(file_data, template_data)
-        ai_prompt = None
+        filled_placeholder_array, ai_prompt = get_placeholder_mock_values(file_data, template_data)
     else:
         # Use OpenAI API for real values
+        from .ai_lawyer_service import get_placeholder_values
         filled_placeholder_array, ai_prompt = get_placeholder_values(file_data, parsed_json_template_file=template_data)
 
+    # Prepare response
     response = {
         'placeholder_values': filled_placeholder_array,
         'original_text': file_text

@@ -1,9 +1,9 @@
 import os
+import re
+from typing import List, Optional, Dict, Tuple, Any, Union
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel
-from typing import List, Optional
-import re
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,8 +17,86 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 class PlaceholderValues(BaseModel):
     values: List[Optional[str]]
 
-def get_placeholder_values(parsed_json_file, parsed_json_template_file=None, agreed_claims=None):
-    """Get placeholder values from OpenAI API based on the provided text.
+def count_placeholders(template_text: str, regex_pattern: str) -> int:
+    """
+    Count placeholders in template text using the provided regex pattern.
+    
+    Args:
+        template_text: The template text to search for placeholders
+        regex_pattern: The regex pattern to use for matching placeholders
+        
+    Returns:
+        The number of placeholders found in the template
+    """
+    # Clean up regex pattern for Python (remove JS-specific parts)
+    clean_regex = regex_pattern.rstrip('g')
+    if clean_regex.startswith('/'):
+        clean_regex = clean_regex[1:]
+    if clean_regex.endswith('/'):
+        clean_regex = clean_regex[:-1]
+        
+    # Count matches if template is provided
+    return len(re.findall(clean_regex, template_text)) if template_text else 0
+
+def build_prompt(text: str, template_text: str, placeholder_regex: str, placeholder_count: int) -> Tuple[str, str]:
+    """
+    Build the prompt for the AI model.
+    
+    Args:
+        text: The legal document text
+        template_text: The template text
+        placeholder_regex: The regex pattern for placeholders
+        placeholder_count: The number of placeholders found
+        
+    Returns:
+        Tuple of (user_prompt, system_prompt)
+    """
+    # Construct the system prompt
+    system_prompt = (
+        f"Du bist ein juristischer Assistent, der Platzhalter in einer Klageantwort basierend auf "
+        f"einer Klageschrift ausfüllt. Dein Ziel ist es, starke Gegenargumente zu finden und eine "
+        f"Verteidigung aufzubauen. Fülle mindestens 80% der Platzhalter mit sinnvollen Werten aus "
+        f"und verwende null nur wenn absolut nötig. Liefere ein Array mit genau "
+        f"{placeholder_count if placeholder_count > 0 else 45} Werten."
+    )
+    
+    # Construct the user prompt
+    user_prompt = f"""
+#Aufgabe
+Fülle das Template für Klageantwort aus. Gib mir ein json array mit allen ausgefüllten placeholder texten.
+
+Dein Hauptziel ist es, starke Gegenargumente zur Klageschrift zu finden und möglichst viele Platzhalter sinnvoll auszufüllen. 
+Versuche, mindestens 80% aller Platzhalter mit sinnvollen Werten zu füllen. Nur wenn absolut keine passende Information gefunden werden kann, darfst du null als Wert einsetzen.
+
+Die Platzhalter im Template folgen diesem Regex-Muster: {placeholder_regex}
+Suche nach allen Textstellen, die diesem Muster entsprechen, und fülle sie mit passenden Werten aus.
+"""
+
+    # Add information about placeholder count and null values
+    if placeholder_count > 0:
+        user_prompt += f"""
+Im Template wurden genau {placeholder_count} Platzhalter gefunden. Dein Array MUSS exakt {placeholder_count} Einträge enthalten.
+Versuche, mindestens {int(placeholder_count * 0.8)} Platzhalter auszufüllen. Verwende nur für maximal {int(placeholder_count * 0.2)} Platzhalter null-Werte.
+Sei kreativ und entwickle starke juristische Gegenargumente, um die Position des Beklagten zu verteidigen.
+"""
+
+    user_prompt += f"""
+#Klageschrift
+{text}
+
+#Template für Klageantwort
+{template_text if template_text else ""}
+"""
+    
+    return user_prompt, system_prompt
+
+def get_placeholder_values(
+    parsed_json_file: Dict[str, Any], 
+    parsed_json_template_file: Optional[Dict[str, Any]] = None, 
+    agreed_claims: Optional[List[str]] = None
+) -> Tuple[List[Optional[str]], Dict[str, str]]:
+    """
+    Get placeholder values from OpenAI API based on the provided text.
     
     Args:
         parsed_json_file: Dictionary containing the 'text' field with legal document content
@@ -26,72 +104,25 @@ def get_placeholder_values(parsed_json_file, parsed_json_template_file=None, agr
         agreed_claims: Optional list of agreed claims
         
     Returns:
-        Tuple of (placeholder_values, ai_prompt) where placeholder_values is a list of values and ai_prompt is the full prompt sent to the AI
+        Tuple of (placeholder_values, ai_prompt) where placeholder_values is a list of values 
+        and ai_prompt is a dictionary containing the full prompts sent to the AI
     """
-    # Extract text from parsed_json_file
+    # Extract text from inputs
     text = parsed_json_file.get('text', '')
-    
-    # Extract placeholder regex if provided, otherwise use default
     placeholder_regex = parsed_json_file.get('placeholder_regex', r'\[\s*•[^\]]*\]')
+    template_text = parsed_json_template_file.get('text', '') if parsed_json_template_file else ''
     
-    # Extract template text if provided
-    template_text = ""
-    if parsed_json_template_file and 'text' in parsed_json_template_file:
-        template_text = parsed_json_template_file.get('text', '')
+    # Extract placeholders
+    placeholder_count = count_placeholders(template_text, placeholder_regex)
     
-    # Count placeholders if template is provided
-    placeholder_count = 0
-    if template_text:
-        # Remove 'g' flag for Python regex
-        search_regex = placeholder_regex.rstrip('g')
-        if search_regex.startswith('/'):
-            search_regex = search_regex[1:]
-        if search_regex.endswith('/'):
-            search_regex = search_regex[:-1]
-            
-        # Count matches
-        placeholder_count = len(re.findall(search_regex, template_text))
+    # Build prompt
+    user_prompt, system_prompt = build_prompt(text, template_text, placeholder_regex, placeholder_count)
     
-    # Construct the prompt for OpenAI
-    prompt = """
-#Aufgabe
-Fülle das Template für Klageantwort aus. Gib mir ein json array mit allen ausgefüllten placeholder texten.
-
-Dein Hauptziel ist es, starke Gegenargumente zur Klageschrift zu finden und möglichst viele Platzhalter sinnvoll auszufüllen. 
-Versuche, mindestens 80% aller Platzhalter mit sinnvollen Werten zu füllen. Nur wenn absolut keine passende Information gefunden werden kann, darfst du null als Wert einsetzen.
-"""
-
-    # Add regex information
-    prompt += f"""
-Die Platzhalter im Template folgen diesem Regex-Muster: {placeholder_regex}
-Suche nach allen Textstellen, die diesem Muster entsprechen, und fülle sie mit passenden Werten aus.
-"""
-
-    # Add information about placeholder count and null values
-    if placeholder_count > 0:
-        prompt += f"""
-Im Template wurden genau {placeholder_count} Platzhalter gefunden. Dein Array MUSS exakt {placeholder_count} Einträge enthalten.
-Versuche, mindestens {int(placeholder_count * 0.8)} Platzhalter auszufüllen. Verwende nur für maximal {int(placeholder_count * 0.2)} Platzhalter null-Werte.
-Sei kreativ und entwickle starke juristische Gegenargumente, um die Position des Beklagten zu verteidigen.
-"""
-
-    prompt += """
-#Klageschrift
-"""
-
-    prompt += text
-
-    prompt += """
-
-#Template für Klageantwort
-"""
-
-    # Add template information if available
-    if template_text:
-        prompt += template_text
-    
-    # Store system prompt for returning
-    system_prompt = f"Du bist ein juristischer Assistent, der Platzhalter in einer Klageantwort basierend auf einer Klageschrift ausfüllt. Dein Ziel ist es, starke Gegenargumente zu finden und eine Verteidigung aufzubauen. Fülle mindestens 80% der Platzhalter mit sinnvollen Werten aus und verwende null nur wenn absolut nötig. Liefere ein Array mit genau {placeholder_count if placeholder_count > 0 else 45} Werten."
+    # Prepare prompt information for return
+    prompt_info = {
+        "system_prompt": system_prompt,
+        "user_prompt": user_prompt
+    }
     
     try:
         # Make request to OpenAI with structured outputs
@@ -99,28 +130,27 @@ Sei kreativ und entwickle starke juristische Gegenargumente, um die Position des
             model="gpt-4o-2024-08-06",
             input=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": user_prompt}
             ],
             text_format=PlaceholderValues,
         )
         
         # Return the parsed values and the prompts
-        return response.output_parsed.values, {
-            "system_prompt": system_prompt,
-            "user_prompt": prompt
-        }
+        return response.output_parsed.values, prompt_info
     except Exception as e:
         print(f"OpenAI API error: {str(e)}")
         # Fall back to mock values if there's an error
-        mock_values = get_placeholder_mock_values(parsed_json_file, parsed_json_template_file, agreed_claims)
-        return mock_values, {
-            "system_prompt": system_prompt,
-            "user_prompt": prompt,
-            "error": str(e)
-        }
+        mock_values, _ = get_placeholder_mock_values(parsed_json_file, parsed_json_template_file, agreed_claims)
+        prompt_info["error"] = str(e)
+        return mock_values, prompt_info
 
-def get_placeholder_mock_values(parsed_json_file, parsed_json_template_file=None, agreed_claims=None):
-    """Get mock placeholder values.
+def get_placeholder_mock_values(
+    parsed_json_file: Dict[str, Any], 
+    parsed_json_template_file: Optional[Dict[str, Any]] = None, 
+    agreed_claims: Optional[List[str]] = None
+) -> Tuple[List[str], None]:
+    """
+    Get mock placeholder values.
     
     Args:
         parsed_json_file: Dictionary containing the 'text' field with legal document content
@@ -130,9 +160,7 @@ def get_placeholder_mock_values(parsed_json_file, parsed_json_template_file=None
     Returns:
         A tuple of (placeholder_values, None) where placeholder_values is a list of mock values
     """
-    # get the placeholder values from the parsed json file
-    text = parsed_json_file['text']
-
+    # Mock values for testing - these should represent typical responses
     mock_placeholder_values = [
         "Die Klage sei abzuweisen;",
         "der Klägerin",
@@ -178,5 +206,6 @@ def get_placeholder_mock_values(parsed_json_file, parsed_json_template_file=None
         "Klientschaft",
         "Sacher Rechtsanwälte, Basel",
         "5% Zins ab 28. Mai 2012 wird bestritten"
-    ] 
+    ]
+    
     return mock_placeholder_values, None

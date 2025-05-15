@@ -8,6 +8,7 @@ class Address:
 		self.city = city
 		self.po_box = po_box
 
+
 	def print(self):
 		if self.po_box:
 			print("Address: {}, {}, {}".format(self.street, self.po_box, self.city))
@@ -63,6 +64,12 @@ class Argument:
 			for obj in self.evidence:
 				print(obj)
 
+	def to_string(self):
+		result = self.statement + "\n"
+		for evidence in self.evidence:
+			result += f" - {evidence}\n"
+		return result.strip()
+
 class Justification:
 	def __init__(self, formalities, jurisdiction, facts):
 		self.formalities = formalities
@@ -79,6 +86,18 @@ class Justification:
 		print("III. Materielles")
 		for arg in self.facts:
 			arg.print()
+	
+	def to_string(self):
+		result = "I. Formelles\n"
+		for arg in self.formalities:
+			result += arg.to_string() + "\n"
+		result += "II. Zuständigkeit\n"
+		for arg in self.jurisdiction:
+			result += arg.to_string() + "\n"
+		result += "III. Materielles\n"
+		for arg in self.facts:
+			result += arg.to_string() + "\n"
+		return result.strip()
 
 class Info:
 	def __init__(self, header, claims, justification):
@@ -95,6 +114,22 @@ class Info:
 			print("{}. {}".format(i + 1, claim))
 		print("Begründung:")
 		self.justification.print()
+
+	def to_string(self, print_header = False):
+		result = ""
+		if print_header:
+			result += "Header:\n"
+			result += self.header.to_string() + "\n\n"
+		result += "Rechtsbegehren:\n"
+		for i, claim in enumerate(self.claims):
+			result += f"{i + 1}. {claim}\n"
+		result += "\nBegründung:\n"
+		result += self.justification.to_string()
+		return result.strip()
+
+	def to_file(self, filepath, print_header = False):
+		with open(filepath, "w", encoding = "utf-8") as f:
+			f.write(self.to_string(print_header))
 
 def is_bold(span):
 	return "Bold" in span["font"]
@@ -286,5 +321,6 @@ def get_info(filename):
 	spans = get_spans(filename)
 	return Info(get_header(spans), get_claims(spans), get_justification(spans))
 
-info = get_info(filename)
-info.print()
+# info = get_info(filename)
+# info.print()
+# info.to_file("test")

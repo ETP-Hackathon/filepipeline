@@ -14,7 +14,6 @@ class Address:
 		else:
 			print("Address: {}, {}".format(self.street, self.city))
 
-
 class Entity:
 	def __init__(self, name, address, role = None, additional = None, representative = None):
 		self.name = name
@@ -80,7 +79,6 @@ class Info:
 		if self.arguments:
 			for arg in self.arguments:
 				arg.print()
-
 
 def is_bold(span):
 	return "Bold" in span["font"]

@@ -25,5 +25,6 @@ urlpatterns = [
 	path('hello-world', views.hello),
 	path('', views.nada),
 	path('upload/', views.upload_file, name='upload_file'),
+	path('send_file/', views.send_file, name='send_file'),
 	
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -9,9 +9,9 @@ from .ai_lawyer_service import get_placeholder_values
 from .ai_lawyer import get_placeholder_values2
 import json
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 import requests
-from docx import Document
-
+from django.http import FileResponse, Http404
 def hello(request):
 	return HttpResponse("Hello, world. You're at the polls index.")
 
@@ -45,27 +45,36 @@ def send_file(request):
             
         output_file = 'output.pdf'
         
-        try:
-            
-            success = get_info(latest_file)
-                #success.print()
-                #return render(request, 'upload_success.html')
-                #make post request to placeholder_values
-                
-            response = requests.post(
-                'http://localhost:8000/placeholder_values/',
-                json={"file_text": success.to_string()}
-            )
-            if response.status_code == 200:
-                with open("output.json", "w", encoding="utf-8") as outfile:
-                    json.dump(response.json(), outfile, ensure_ascii=False, indent=2)
-                return render(request, 'upload_success.html')
-            else:
-                return HttpResponse("Error parsing file")
-            
-            return redirect('placeholder_values')
-        except ImportError:
-            return HttpResponse("Parser module not implemented yet")
+    try:
+        success = get_info(latest_file)  
+        response = requests.post(
+            'http://localhost:8000/placeholder_values/',
+            json={"file_text": success.to_string()}
+        )
+
+        if response.status_code == 200:
+            output_filename = "output.json"
+            output_path = os.path.join(settings.MEDIA_ROOT, output_filename)
+            with open(output_path, "w", encoding="utf-8") as outfile:
+                json.dump(response.json(), outfile, ensure_ascii=False, indent=2)
+
+            return render(request, 'upload_success.html', {
+                'download_url': f'/media/{output_filename}'
+            })
+        else:
+            return HttpResponse("Error parsing file")
+
+    except ImportError:
+        return HttpResponse("Parser module not implemented yet")
+    except Exception as e:
+        return HttpResponse(f"An error occurred: {str(e)}")
+        
+def download_file(request, filename):
+    file_path = os.path.join(settings.MEDIA_ROOT, filename)
+    if os.path.exists(file_path):
+        return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=filename)
+    else:
+        raise Http404("File not found.")
 @csrf_exempt
 def placeholder_values(request):
     # Only accept POST requests

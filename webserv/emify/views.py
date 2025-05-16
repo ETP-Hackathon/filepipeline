@@ -46,8 +46,8 @@ def send_file(request):
         output_file = 'output.pdf'
         
     try:
-        input_file = "/Users/maximemartin/filepipeline/webserv/emify/template.docx"
-        output_filename = "filled_template.docx"
+        input_file = "emify/template.docx"
+        output_filename = "klageantwort.docx"
         output_path = os.path.join(settings.MEDIA_ROOT, output_filename)
 
         # Process input data

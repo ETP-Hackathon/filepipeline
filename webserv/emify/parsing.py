@@ -1,6 +1,8 @@
-import fitz
+import fitz # type: ignore
+from docx import Document # type: ignore
+import re
 
-#filename = "../Klageschrift.pdf"
+filename = "../Klageschrift.pdf"
 
 class Address:
 	def __init__(self, street, city, po_box = None):
@@ -14,6 +16,18 @@ class Address:
 			print("Address: {}, {}, {}".format(self.street, self.po_box, self.city))
 		else:
 			print("Address: {}, {}".format(self.street, self.city))
+
+	def to_str(self, newline = False):
+		parts = [self.street]
+		if self.po_box:
+			parts.append(self.po_box)
+		parts.append(self.city)
+		if newline:
+			space = "\n"
+		else:
+			space = " "
+		return ("," + space).join(parts)
+
 
 class Entity:
 	def __init__(self, name, address, role = None, additional = None, representative = None):
@@ -34,6 +48,15 @@ class Entity:
 		if self.representative:
 			print("Represented by:")
 			self.representative.print()
+
+	def get_info(self):
+		if self.additional:
+			return ", ".join([self.additional, self.address.to_str()])
+		else:
+			return self.address.to_str()
+		
+	def to_str(self):
+		return ", ".join([self.name, self.get_info()])
 
 class Header:
 	def __init__(self, court, plaintiff, defendant):
@@ -324,3 +347,96 @@ def get_info(filename):
 # info = get_info(filename)
 # info.print()
 # info.to_file("test")
+
+
+# def replace_placeholders_in_docx(template_path, output_path, replacements):
+# 	doc = Document(template_path)
+
+# 	pattern = re.compile(r"\[[^\]]+\]")  # Matches [placeholder]
+
+# 	for paragraph in doc.paragraphs:
+# 		full_text = "".join(run.text for run in paragraph.runs)
+# 		matches = list(pattern.finditer(full_text))
+
+# 		if not matches:
+# 			continue
+		
+# 		print(matches)
+# 		for match in matches:
+# 			print(match)
+# 			placeholder = match.group(0)
+# 			if placeholder in replacements:
+# 				replacement = str(replacements[placeholder])
+# 				# Rebuild runs while replacing
+# 				new_text = full_text.replace(placeholder, replacement)
+
+# 				# Clear existing runs
+# 				for run in paragraph.runs:
+# 					run.text = ""
+
+# 				# Add new run with replaced text
+# 				paragraph.runs[0].text = new_text
+
+# 	doc.save(output_path)
+
+def replace_placeholders_in_docx(template_path, output_path, replacements):
+	doc = Document(template_path)
+
+	pattern = re.compile(r"\[[^\]]+\]")  # Matches [placeholder]
+
+	for paragraph in doc.paragraphs:
+		# Reconstruct full paragraph text
+		full_text = "".join(run.text for run in paragraph.runs)
+		matches = list(pattern.finditer(full_text))
+
+		if not matches:
+			continue
+
+		# Apply all replacements
+		for match in matches:
+			placeholder = match.group(0)
+			if placeholder in replacements:
+				full_text = full_text.replace(placeholder, str(replacements[placeholder]))
+
+		# Clear existing runs
+		for run in paragraph.runs:
+			run.text = ""
+
+		# Add full_text into one run (simple way — all formatting lost)
+		# You can optionally split by formatting later
+		paragraph.runs[0].text = full_text
+
+	doc.save(output_path)
+
+
+def get_replacements(info, json_data):
+    header = info.header
+    
+    # Extract the list from the JSON data
+    placeholder_values = json_data.get("placeholder_values", [])
+    
+    # Safely get the first 3 values or empty strings if not enough lines
+    counter = placeholder_values[0] if len(placeholder_values) > 0 else ""
+    formelles = placeholder_values[1] if len(placeholder_values) > 1 else ""
+    materielles = placeholder_values[2] if len(placeholder_values) > 2 else ""
+
+    replacements = {
+        "[court.name]": header.court.name,
+        "[court.address]": header.court.address.to_str(newline=True),
+        "[plaintiff.name]": header.plaintiff.name,
+        "[plaintiff.info]": header.plaintiff.get_info(),
+        "[plaintiff.representative]": "vertreten durch RA " + header.plaintiff.representative.to_str(),
+        "[defendant.name]": header.defendant.name,
+        "[defendant.info]": header.defendant.get_info(),
+        "[defendant.representative]": "vertreten durch RA " + header.defendant.representative.to_str(),
+        "[representative.name]": header.defendant.representative.name,
+
+        "[counter]": counter,
+        "[formelles]": formelles,
+        "[materielles]": materielles,
+	}
+    return replacements
+
+# Define the input docx file and the output file
+
+#replace_placeholders_in_docx(input_file, output_file, get_replacements(info))

@@ -3,7 +3,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect
 from .forms import UploadFileForm
 import os
-from .parsing import get_info
+from .parsing import get_info, get_replacements, replace_placeholders_in_docx
 from .convert_docx_to_pdf import convert_docx_to_pdf
 from .ai_lawyer_service import get_placeholder_values
 from .ai_lawyer import get_placeholder_values2
@@ -46,17 +46,26 @@ def send_file(request):
         output_file = 'output.pdf'
         
     try:
-        success = get_info(latest_file)  
+        input_file = "/Users/maximemartin/filepipeline/webserv/emify/template.docx"
+        output_filename = "filled_template.docx"
+        output_path = os.path.join(settings.MEDIA_ROOT, output_filename)
+
+        # Process input data
+        success = get_info(latest_file)
         response = requests.post(
             'http://localhost:8000/placeholder_values/',
             json={"file_text": success.to_string()}
         )
 
         if response.status_code == 200:
-            output_filename = "output.json"
-            output_path = os.path.join(settings.MEDIA_ROOT, output_filename)
-            with open(output_path, "w", encoding="utf-8") as outfile:
+            # Optional: save JSON output
+            json_output_path = os.path.join(settings.MEDIA_ROOT, "output.json")
+            json_data = response.json()  # Extract JSON data once here
+            with open(json_output_path, "w", encoding="utf-8") as outfile:
                 json.dump(response.json(), outfile, ensure_ascii=False, indent=2)
+
+            # Replace placeholders and save filled DOCX to MEDIA folder
+            replace_placeholders_in_docx(input_file, output_path, get_replacements(success, json_data))
 
             return render(request, 'upload_success.html', {
                 'download_url': f'/media/{output_filename}'

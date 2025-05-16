@@ -105,9 +105,10 @@ def placeholder_values(request):
 
     # get the file text from the request json
     file_text = data['file_text']
-    
-    # Get template text if provided
-    template_text = data.get('template_text', None)
+
+    # Get template text if provided, otherwise use default
+    default_template = "ein und stelle folgendes\n\nRechtbegehren:\n \n${counter}\n\nBegründung:\n\nI.\tFormelles\n\n\n${formelles}\n\n \nII.\tMaterielles\n\n\n${materielles}\n\n\n\n\n\n\nFreundliche Grüsse\n"
+    template_text = data.get('template_text', default_template)
     
     # Get placeholder regex if provided
     placeholder_regex = data.get('placeholder_regex', None)

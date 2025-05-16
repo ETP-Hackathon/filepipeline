@@ -1,5 +1,6 @@
 import fitz # type: ignore
 from docx import Document # type: ignore
+import re
 
 filename = "../Klageschrift.pdf"
 
@@ -348,19 +349,63 @@ def get_info(filename):
 # info.to_file("test")
 
 
-def replace_placeholder_in_docx(doc_path, output_path, replacements):
-	# Load the docx file
-	doc = Document(doc_path)
-	
-	# Go through each paragraph and replace placeholders
+# def replace_placeholders_in_docx(template_path, output_path, replacements):
+# 	doc = Document(template_path)
+
+# 	pattern = re.compile(r"\[[^\]]+\]")  # Matches [placeholder]
+
+# 	for paragraph in doc.paragraphs:
+# 		full_text = "".join(run.text for run in paragraph.runs)
+# 		matches = list(pattern.finditer(full_text))
+
+# 		if not matches:
+# 			continue
+		
+# 		print(matches)
+# 		for match in matches:
+# 			print(match)
+# 			placeholder = match.group(0)
+# 			if placeholder in replacements:
+# 				replacement = str(replacements[placeholder])
+# 				# Rebuild runs while replacing
+# 				new_text = full_text.replace(placeholder, replacement)
+
+# 				# Clear existing runs
+# 				for run in paragraph.runs:
+# 					run.text = ""
+
+# 				# Add new run with replaced text
+# 				paragraph.runs[0].text = new_text
+
+# 	doc.save(output_path)
+
+def replace_placeholders_in_docx(template_path, output_path, replacements):
+	doc = Document(template_path)
+
+	pattern = re.compile(r"\[[^\]]+\]")  # Matches [placeholder]
+
 	for paragraph in doc.paragraphs:
-		for placeholder, value in replacements.items():
-			if placeholder in paragraph.text:
-				# Replace the placeholder with the actual value
-				for run in paragraph.runs:
-					run.text = run.text.replace(placeholder, value)
-	
-# Save the modified document to the output path
+		# Reconstruct full paragraph text
+		full_text = "".join(run.text for run in paragraph.runs)
+		matches = list(pattern.finditer(full_text))
+
+		if not matches:
+			continue
+
+		# Apply all replacements
+		for match in matches:
+			placeholder = match.group(0)
+			if placeholder in replacements:
+				full_text = full_text.replace(placeholder, str(replacements[placeholder]))
+
+		# Clear existing runs
+		for run in paragraph.runs:
+			run.text = ""
+
+		# Add full_text into one run (simple way — all formatting lost)
+		# You can optionally split by formatting later
+		paragraph.runs[0].text = full_text
+
 	doc.save(output_path)
 
 info = get_info(filename)
@@ -375,7 +420,10 @@ replacements = {
 	"[defendant.name]" : header.defendant.name,
 	"[defendant.info]" : header.defendant.get_info(),
 	"[defendant.representative]" : "vetreten durch RA " + header.defendant.representative.to_str(),
-	"[representative.name]": header.defendant.representative.name
+	"[representative.name]" : header.defendant.representative.name,
+	"[counter]" : "Counter arguments",
+	"[formelles]" : "Formelles dummy",
+	"[materielles]" : "Materielles"
 }
 
 for key in replacements:
@@ -385,4 +433,4 @@ for key in replacements:
 input_file = "template.docx"
 output_file = "filled_template.docx"
 
-replace_placeholder_in_docx(input_file, output_file, replacements)
+replace_placeholders_in_docx(input_file, output_file, replacements)

@@ -1,24 +1,14 @@
-Rechtsbegehren:
-1. Der Beklagte sei zu verpflichten, an die Klägerin CHF 12‘000.- nebst 5% Zins seit dem 28. Mai 2012 zu zahlen.
-2. Unter Kosten- und Entschädigungsfolgen zulasten der Beklagten.
-
-Begründung:
-I. Formelles
-Die Sühneverhandlung vor dem Friedensrichteramt Basel fand – ergebnislos – am (…) statt. Gleichentags wurde die Klagebewilligung ausgestellt. Der Unterzeichnende ist gehörig bevollmächtigt.
- - Anwaltsvollmacht kläg.act. 0
- - Klagebewilligung vom (…) kläg.act. 1
-II. Zuständigkeit
-Die Klägerin hat Ihren Geschäftssitz in Zürich, der Beklagte in Basel-Stadt, weshalb das angerufene Gericht sachlich und örtlich zuständig ist (Art. 31 ZPO). Die Klägerin offeriert für ihre tatsächlichen Ausführungen im Rahmen der Beweislast den rechtsgenügenden Beweis, auch dort, wo nachfolgend keine Beweismittel genannt werden.
-III. Materielles
-Die Klägerin ist eine im Handelsregister der Stadt Zürich eingetragene Aktiengesellschaft nach Schweizer Recht. Sie betreibt einen Im- und Export.
- - Handelsregisterauszug der Müller & Janser AG kläg.act. 2
-Sie verlangt vom Beklagten, einem selbständigen Werbegrafiker, den restlichen Kaufpreis für einen gebrauchten Firmenwagen. Auf eine Annonce der Klägerin suchte der Beklagte den Betrieb der Klägerin am 13.2.2012 auf und liess sich von deren Fahrer, Herrn A., das Fahrzeug vom Typ Daimler-Benz ML 320, amtl. Kennzeichen (….), vorführen. Nach einer Probefahrt entschloss sich der Beklagte zum Kauf und unterzeichnete einen von Herrn A vorbereiteten Kaufvertrag.
- - Kaufvertrag vom 13.2.2012 kläg.act. 3
-Nach dem Vertrag betrug der Kaufpreis CHF 20‘000. -, hiervon waren bei Übergabe CHF 8‘000. - zu zahlen, die restlichen CHF 12‘000. - wurden bis zum 1.4.2012 gestundet.
- - Kaufvertrag vom 13.2.2012 kläg.act. 3
-Der Wagen wurde am 14.2.2012 auf den Beklagten zugelassen und ihm gegen Zahlung von CHF 8‘000. - übergeben. Den Restbetrag von CHF 12‘000. - hat der Beklagte trotz Mahnschreiben vom 5.4. und 30.4.2012 nicht beglichen.
- - Mahnschreiben vom 5. und 30. April 2012 kläg.act. 4 und 5
-Der Beklagte wird vermutlich einwenden, dass der Wagen mangelhaft sei. Hiermit kann der Beklagte jedoch nicht gehört werden, denn er hat das Fahrzeug kraft ausdrücklicher vertraglicher Vereinbarung „gekauft wie besehen und unter Ausschluss jeglicher Gewährleistung“.
- - Kaufvertrag vom 13.2.2012 kläg.act. 3
-Damit scheiden Gewährleistungsansprüche aus. Vorsorglich wird aber schon jetzt bestritten, dass der Wagen bei Übergabe Mängel aufwies, die über einen normalen Verschleiss hinausgingen. Im Übrigen waren dem Beklagten Alter und Zustand der Fahrzeugs bekannt, denn er hat in Anwesenheit des Fahrers Herr A Karossierie und Motor sorgfältig untersucht und sich auch den Kraftfahrzeugbrief und den Kraftfahrzeugschein zeigen lassen. Zusicherungen über den Zustand des Fahrzeuges sind nicht abgegeben worden.
- - Herr A (….) Zeuge
+replacements = {
+	"court.name" : header.court.name,
+	"court.address" : header.court.address.to_str(newline = True),
+	"plaintiff.name" : header.plaintiff.name,
+	"plaintiff.info" : header.plaintiff.get_info(),
+	"plaintiff.representative" : "vetreten durch RA " + header.plaintiff.representative.to_str(),
+	"defendant.name" : header.defendant.name,
+	"defendant.info" : header.defendant.get_info(),
+	"defendant.representative" : "vetreten durch RA " + header.defendant.representative.to_str(),
+	"representative.name" : header.defendant.representative.name,
+	"counter" : "Counter arguments",
+	"formelles" : "Formelles dummy",
+	"materielles" : "Materielles"
+}

@@ -72,56 +72,6 @@ def build_prompt(text: str, template_text: str, placeholder_regex: str, placehol
 
     system_prompt += f"{text}\n\n"
     return system_prompt
-def get_placeholder_values2(
-    parsed_json_file: Dict[str, Any], 
-    parsed_json_template_file: Optional[Dict[str, Any]] = None, 
-    agreed_claims: Optional[List[str]] = None
-) -> Tuple[List[Optional[str]], Dict[str, str]]:
-    """
-    Get placeholder values from OpenAI API based on the provided text.
-    
-    Args:
-        parsed_json_file: Dictionary containing the 'text' field with legal document content
-        parsed_json_template_file: Optional dictionary containing template text
-        agreed_claims: Optional list of agreed claims
-        
-    Returns:
-        Tuple of (placeholder_values, ai_prompt) where placeholder_values is a list of values 
-        and ai_prompt is a dictionary containing the full prompts sent to the AI
-    """
-    # Extract text from inputs
-	
-    text = parsed_json_file.get('text', '')
-    placeholder_regex = parsed_json_file.get('placeholder_regex', r'\[\s*•[^\]]*\]')
-    template_text = parsed_json_template_file.get('text', '') if parsed_json_template_file else ''
-    
-    # Extract placeholders
-    placeholder_count = count_placeholders(template_text, placeholder_regex)
-    
-    # Build prompt (only system_prompt is returned)
-    system_prompt = build_prompt(text, template_text, placeholder_regex, placeholder_count)
-
-    prompt_info = {
-        "system_prompt": system_prompt
-    }
-
-    try:
-        # Call OpenAI API with only system prompt
-        response = client.responses.parse(
-            model="gpt-4o-2024-08-06",
-            input=[
-                {"role": "system", "content": system_prompt}
-            ],
-            text_format=PlaceholderValues,
-        )
-        
-        return response.output_parsed.values, prompt_info
-
-    except Exception as e:
-        print(f"OpenAI API error: {str(e)}")
-        mock_values, _ = get_placeholder_mock_values(parsed_json_file, parsed_json_template_file, agreed_claims)
-        prompt_info["error"] = str(e)
-        return mock_values, prompt_info
 
 def get_placeholder_mock_values(
     parsed_json_file: Dict[str, Any], 

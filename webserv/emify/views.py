@@ -6,6 +6,7 @@ import os
 from .parsing import get_info
 from .convert_docx_to_pdf import convert_docx_to_pdf
 from .ai_lawyer_service import get_placeholder_values
+from .ai_lawyer import get_placeholder_values2
 import json
 from django.views.decorators.csrf import csrf_exempt
 import requests
@@ -50,14 +51,10 @@ def send_file(request):
                 #success.print()
                 #return render(request, 'upload_success.html')
                 #make post request to placeholder_values
-            with open("/Users/maximemartin/filepipeline/webserv/emify/dokument.docx", "rb") as f:
-                doc = Document(f)
-                doc = "\n".join([p.text for p in doc.paragraphs])
-                
                 
             response = requests.post(
                 'http://localhost:8000/placeholder_values/',
-                json={"file_text": success.to_string(), "template_text": doc}
+                json={"file_text": success.to_string()}
             )
             if response.status_code == 200:
                 with open("output.json", "w", encoding="utf-8") as outfile:
@@ -69,7 +66,6 @@ def send_file(request):
             return redirect('placeholder_values')
         except ImportError:
             return HttpResponse("Parser module not implemented yet")
-
 @csrf_exempt
 def placeholder_values(request):
     # Only accept POST requests

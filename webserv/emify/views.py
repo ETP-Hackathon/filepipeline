@@ -6,7 +6,6 @@ import os
 from .parsing import get_info, get_replacements, replace_placeholders_in_docx
 from .convert_docx_to_pdf import convert_docx_to_pdf
 from .ai_lawyer_service import get_placeholder_values
-from .ai_lawyer import get_placeholder_values2
 import json
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings

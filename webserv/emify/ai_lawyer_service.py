@@ -109,7 +109,7 @@ def get_placeholder_values(
     """
     # Extract text from inputs
     text = parsed_json_file.get('text', '')
-    placeholder_regex = parsed_json_file.get('placeholder_regex', r'\[\s*•[^\]]*\]')
+    placeholder_regex = parsed_json_file.get('placeholder_regex', r'\$\{(.*?)\}')
     template_text = parsed_json_template_file.get('text', '') if parsed_json_template_file else ''
     
     # Extract placeholders
